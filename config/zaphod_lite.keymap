@@ -1,0 +1,270 @@
+/*
+ * Copyright (c) 2024 Allister MacLeod
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+#include <behaviors.dtsi>
+#include <dt-bindings/zmk/bt.h>
+#include <dt-bindings/zmk/keys.h>
+
+#include "zmk-helpers/helper.h"
+#include "zmk-helpers/key-labels/34.h"
+
+#include <behaviors/num_word.dtsi>
+
+// Zaphod Lite keymap.
+
+// TO-DO list:
+// - "smart" semi-layers: smart nav stays in arrows and nav until non-nav pressed, for example
+
+#define DEFAULT 0
+#define HD_NEU  0
+#define SYM     1
+#define NAV     2
+#define NUM     3
+#define FACTORY 4
+#define FACMETA 5
+#define KEEBCTL 6
+
+#include "glam-multigraph.dtsi"
+#include "glam-util.dtsi"
+
+// This bt-kbdctl include needs to be after the layer defines,
+// specifically the one for KEEBCTL.
+#include "glam-bt-kbdctl.dtsi"
+
+// Placeholder for unused parameters.
+#define UNUSED 0
+
+//   0   1   2   3   4       5   6   7   8   9
+//  10  11  12  13  14      15  16  17  18  19
+//  20  21  22  23  24      25  26  27  28  29
+//              30  31    32  33
+
+// LT4 LT3 LT2 LT1 LT0     RT0 RT1 RT2 RT3 RT4
+// LM4 LM3 LM2 LM1 LM0     RM0 RM1 RM2 RM3 RM4
+// LB4 LB3 LB2 LB1 LB0     RB0 RB1 RB2 RB3 RB4
+//              LH1 LH0   RH0 RH1
+
+// Key groups for cross-hand hold trigger definitions.
+#define KEYS_LEFT  LT4 LT3 LT2 LT1 LT0  LM4 LM3 LM2 LM1 LM0  LB4 LB3 LB2 LB1 LB0
+#define KEYS_RIGHT RT0 RT1 RT2 RT3 RT4  RM0 RM1 RM2 RM3 RM4  RB0 RB1 RB2 RB3 RB4
+#define KEYS_THUMB LH1 LH0  RH0 RH1
+
+/ {
+combos {
+  compatible = "zmk,combos";
+
+#include "glam-neu-combos.dtsi"
+
+#include "glam-factorio-combos.dtsi"
+
+#include "glam-sym-nav-num-combos.dtsi"
+
+  // All four thumb keys for keyboard control layer.
+  combo_thumbs_keyboard_control {
+    timeout-ms = <50>;
+    key-positions = <LH1 LH0 RH0 RH1>;
+    bindings = <&tog KEEBCTL>;
+  };
+  // Right hand index and ring fingers for BT_CLR_ALL but only on KEEBCTL layer.
+  combo_bt_clear_all {
+    timeout-ms = <50>;
+    key-positions = <RB1 RB3>;
+    bindings = <&btclall>;
+    layers = <KEEBCTL>;
+  };
+  // Top and bottom keys on both innermost columns to enter flashing
+  // mode.
+  combo_bootsel {
+    timeout-ms = <50>;
+    key-positions = <LT0 LB0 RT0 RB0>;
+    bindings = <&bootloader>;
+  };
+  // Top right hand inner two keys for alt-tab tri-state.
+  combo_alt_tab {
+    timeout-ms = <50>;
+    key-positions = <RT0 RT1>;
+    bindings = <&alt_tab>;
+  };
+};
+
+behaviors {
+  // Symbol morphs for non-conventional shifting.
+  hash_at: morph_octothorpe_amphora {
+    compatible = "zmk,behavior-mod-morph";
+    #binding-cells = <0>;
+    bindings = <&kp HASH>, <&kp AT>;
+    mods = <(MOD_LSFT|MOD_RSFT)>;
+  };
+  dot_cln: morph_period_colon {
+    compatible = "zmk,behavior-mod-morph";
+    #binding-cells = <0>;
+    bindings = <&kp DOT>, <&kp COLON>;
+    mods = <(MOD_LSFT|MOD_RSFT)>;
+  };
+  sqt_bang: morph_apostrophe_exclamation {
+    compatible = "zmk,behavior-mod-morph";
+    #binding-cells = <0>;
+    bindings = <&kp SQT>, <&kp EXCL>;
+    mods = <(MOD_LSFT|MOD_RSFT)>;
+  };
+  dqt_ques: morph_quote_question {
+    compatible = "zmk,behavior-mod-morph";
+    #binding-cells = <0>;
+    bindings = <&kp DQT>, <&kp QMARK>;
+    mods = <(MOD_LSFT|MOD_RSFT)>;
+  };
+  com_semi: morph_comma_semicolon {
+    compatible = "zmk,behavior-mod-morph";
+    #binding-cells = <0>;
+    bindings = <&kp COMMA>, <&kp SEMICOLON>;
+    mods = <(MOD_LSFT|MOD_RSFT)>;
+  };
+  slashes: morph_slash_backslash {
+    compatible = "zmk,behavior-mod-morph";
+    #binding-cells = <0>;
+    bindings = <&kp SLASH>, <&kp BACKSLASH>;
+    mods = <(MOD_LSFT|MOD_RSFT)>;
+  };
+  // Morph for smart-shift inspired by urob.
+  smart_shift: morph_smart_shift {
+    compatible = "zmk,behavior-mod-morph";
+    #binding-cells = <0>;
+    bindings = <&sk LSHIFT>, <&caps_word>;
+    mods = <(MOD_LSFT)>;
+  };
+  // Hold tap where the tap is a sticky layer, kind of the converse of
+  // a layer-tap. This has a short tapping term since it is meant for
+  // the Factorio layer's "hold to pick up from ground (F), tap for
+  // sticky overlay" binding, and I do not want to have to wait too
+  // terribly long for stuff to start getting picked up.
+  slt: sticky_layer_tap {
+    compatible = "zmk,behavior-hold-tap";
+    #binding-cells = <2>;
+    bindings = <&kp &sl>;
+    flavor = "tap-preferred";
+    tapping-term-ms = <200>;
+    quick-tap-ms = <100>;
+  };
+  // App-switch tri-state; tap repeatedly to switch windows.
+  alt_tab: alt_tab_bookend {
+    compatible = "zmk,behavior-tri-state";
+    #binding-cells = <0>;
+    bindings = <&kt LALT>, <&kp TAB>, <&kt LALT>;
+    ignored-key-positions = <RT0 RT1>;
+  };
+};
+
+keymap {
+  compatible = "zmk,keymap";
+  hands_down_neu_layer {
+// Hands Down Neu with punctuation moved a bit to match my habits.
+// Q and Z exist only in combos.
+// ,-----------------------------.   ,-----------------------------.
+// |  W  |  F  |  M  |  P  |  V  |   | # @ | . : | ' ! | " ? |  J  |
+// |  R  |  S  |  N  |  T  |  B  |   | , ; |  A  |  E  |  I  |  H  |
+// |  X  |  C  |  L  |  D  |  G  |   |  -  |  U  |  O  |  Y  |  K  |
+// `-----------------| SYM |Shift|   | Spc | NAV |-----------------'
+    bindings = <
+&kp W &kp F &kp M &kp P &kp V        &hash_at  &dot_cln &sqt_bang &dqt_ques &kp J
+&kp R &kp S &kp N &kp T &kp B        &com_semi &kp A    &kp E     &kp I     &kp H
+&kp X &kp C &kp L &kp D &kp G        &kp MINUS &kp U    &kp O     &kp Y     &kp K
+           &sl SYM &smart_shift    &kp SPACE &sl NAV
+    >;
+    display-name = "HDNeu";
+  };
+  symbols_layer {
+// ,-----------------------------.   ,-----------------------------.
+// |  `  |  <  |  >  |  "  |  '  |   |  &  |  :  |  [  |  ]  |  _  |
+// |  !  |  -  |  +  |  =  |  #  |   |  |  |  ;  |  {  |  }  |  ?  |
+// |  ~  |  /  |  *  |  %  |  @  |   |  ^  |  $  |  (  |  )  | / \ |
+// `-----------------| NAV |Shift|   |     | NUM |-----------------'
+    bindings = <
+&kp GRAVE &kp LT    &kp GT   &kp DQT     &kp SQT      &kp AMPS  &kp COLON  &kp LBKT &kp RBKT &kp UNDER
+&kp EXCL  &kp MINUS &kp PLUS &kp EQUAL   &kp HASH     &kp PIPE  &kp SEMI   &kp LBRC &kp RBRC &kp QMARK
+&kp TILDE &kp SLASH &kp STAR &kp PERCENT &kp AT       &kp CARET &kp DOLLAR &kp LPAR &kp RPAR &slashes
+                               &sl NAV &kp LSHIFT    &trans &num_word NUM
+    >;
+    display-name = "SYM";
+  };
+  navigation_layer {
+// ,-----------------------------.   ,-----------------------------.
+// | ^Q  | ^W  | ^E  | ^R  | ^T  |   | Home| PgU |  Up | PgD | Bks |
+// | ^A  | ^S  | ^D  | ^F  | ^G  |   | End | Left| Down|Right| Ret |
+// | ^Z  | ^X  | ^C  | ^V  | Del |   | GUI | Ctrl|Shift| Alt | Tab |
+// `-----------------|XXXXX| Ins |   |Altab|XXXXX|-----------------'
+    bindings = <
+&kp LC(Q) &kp LC(W) &kp LC(E) &kp LC(R) &kp LC(T)   &kp HOME &kp PG_UP &kp UP     &kp PG_DN &kp BSPC
+&kp LC(A) &kp LC(S) &kp LC(D) &kp LC(F) &kp LC(G)   &kp END  &kp LEFT  &kp DOWN   &kp RIGHT &kp RET
+&kp LC(Z) &kp LC(X) &kp LC(C) &kp LC(V) &kp DEL     &sk RGUI &sk RCTRL &sk RSHIFT &sk LALT  &kp TAB
+                                &none &kp INS       &alt_tab &none
+    >;
+    display-name = "NAV";
+  };
+  numeric_layer {
+// ,-----------------------------.   ,-----------------------------.
+// |     |     |     |     |     |   |  *  |  7  |  8  |  9  |  -  |
+// |     |     |     |     |     |   |  /  |  4  |  5  |  6  |  +  |
+// |     |     |     |     |     |   | . : |  1  |  2  |  3  |Base |
+// `-----------------|     |     |   |     |  0  |-----------------'
+    bindings = <
+&trans &trans &trans &trans &trans     &kp STAR  &kp N7 &kp N8 &kp N9 &kp MINUS
+&trans &trans &trans &trans &trans     &kp SLASH &kp N4 &kp N5 &kp N6 &kp PLUS
+&trans &trans &trans &trans &trans     &dot_cln  &kp N1 &kp N2 &kp N3 &tog NUM
+                      &trans &trans   &trans &kp N0
+    >;
+    display-name = "NUM";
+  };
+  factorio_layer {
+// ,-----------------------------.   ,-----------------------------.
+// |  T  |  Q  |  W  |  E  |  R  |   |  F1 |XXXXX|XXXXX|XXXXX|XXXXX|
+// |Shift|  A  |  S  |  D  |  H  |   |  F2 |XXXXX|XXXXX|XXXXX|XXXXX|
+// | Ctrl|  Z  |  X  |  C  |  V  |   |  F3 |XXXXX|XXXXX|XXXXX|XXXXX|
+// `-----------------|  F  |Space|   |XXXXX| FOV |-----------------'
+    bindings = <
+&kp T       &kp Q  &kp W  &kp E  &kp R             &kp F1 &none &none &none &none
+&kp LSHIFT  &kp A  &kp S  &kp D  &kp H             &kp F2 &none &none &none &none
+&kp LCTRL   &kp Z  &kp X  &kp C  &kp V             &kp F3 &none &none &none &none
+                   &slt F FACMETA &kp SPACE    &none &mo FACMETA
+    >;
+    display-name = "F A C";
+  };
+  factorio_overlay_layer {
+// ,-----------------------------.   ,-----------------------------.
+// |  1  |  2  |  3  |  4  |  5  |   |  6  |  7  |  8  |  9  |  0  |
+// |     |Alt-A|XXXXX|Alt-T|Alt-R|   |XXXXX|XXXXX|XXXXX|XXXXX|XXXXX|
+// |     |XXXXX|XXXXX|Alt-C|Alt-G|   |XXXXX|XXXXX|XXXXX|XXXXX|XXXXX|
+// `-----------------|#####|     |   |Base |#####|-----------------'
+    bindings = <
+&kp N1 &kp N2    &kp N3 &kp N4    &kp N5                   &kp N6 &kp N7 &kp N8 &kp N9 &kp N0
+&trans &kp LA(A) &none  &kp LA(T) &kp LA(R)                &none  &none  &none  &none  &none
+&trans &none     &none  &kp LA(C) &kp LA(G)                &none  &none  &none  &none  &none
+                                    &none &trans   &tog FACTORY &trans
+    >;
+    display-name = "T O R Y";
+  };
+  keyboard_control_layer {
+// Bluetooth clear-all on right hand index and ring finger combo.
+// ,-----------------------------.   ,-----------------------------.
+// |     |     |     |     | FAC |   |     |     |     |     |     |
+// |     |     |     |     |     |   |     |     |     |     |     |
+// | BT1 | BT2 | BT3 | BT4 | BT5 |   |ClCur| [-ClAll-] |     |
+// `-----------------|     |     |   |Base |     |-----------------'
+    bindings = <
+&trans &trans &trans &trans &to FACTORY           &trans &trans &trans &trans &trans
+&trans &trans &trans &trans &trans                &trans &trans &trans &trans &trans
+&btp 0 &btp 1 &btp 2 &btp 3 &btp 4                &btcc &trans &trans &trans &trans
+                                &trans &trans   &tog KEEBCTL &trans
+    >;
+    display-name = "KBDCTL";
+  };
+};
+};
+
+// ,-----------------------------.   ,-----------------------------.
+// |     |     |     |     |     |   |     |     |     |     |     |
+// |     |     |     |     |     |   |     |     |     |     |     |
+// |     |     |     |     |     |   |     |     |     |     |     |
+// `-----------------|     |     |   |     |     |-----------------'
