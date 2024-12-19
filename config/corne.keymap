@@ -38,7 +38,7 @@
             tapping-term-ms = <200>;
             bindings = <&kp LGUI>, <&kp LCTRL>;
         };
-        td_cg: tap_dance_lgui_lctrl {
+        td_cg: tap_dance_rctrl_rgui {
             compatible = "zmk,behavior-tap-dance";
             #binding-cells = <0>;
             tapping-term-ms = <200>;
