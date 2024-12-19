@@ -1,475 +1,177 @@
 /*
- * Copyright (c) 2024 Allister MacLeod
+ * Copyright (c) 2020 The ZMK Contributors
  *
  * SPDX-License-Identifier: MIT
  */
 
 #include <behaviors.dtsi>
-#include <dt-bindings/zmk/bt.h>
 #include <dt-bindings/zmk/keys.h>
+#include <dt-bindings/zmk/bt.h>
 
-#include "zmk-helpers/helper.h"
-#include "zmk-helpers/key-labels/36.h"
+#define LEFT_POSITIONS  0 1 2 3 4 5 12 13 14 15 16 17 24 25 26 27 28 29 36 37 38
+#define RIGHT_POSITIONS 6 7 8 9 10 11 18 19 20 21 22 23 30 31 32 33 34 35 39 40 41
+/* Key Positions
+╭────────────────────────╮ ╭────────────────────────╮
+│  0   1   2   3   4   5 │ │  6   7   8   9  10  11 │
+│ 12  13  14  15  16  17 │ │ 18  19  20  21  22  23 │
+│ 24  25  26  27  28  29 │ │ 30  31  32  33  34  35 │
+╰───────────╮ 36  37  38 │ │ 39  40  41 ╭───────────╯
+            ╰────────────╯ ╰────────────╯
+*/
 
-// Things to try next:
-// - better handling of adaptive keys in Hands Down Gold;
-//    maybe tap-dance is not the best way to handle Z and Q
-// - alt-tab shortcut, Callum-style if possible (virtually hold Alt
-//   for successive "next window" presses)
-// - Emacs-specific macro keys: C-space, maybe others
-// - change shifting of , and . in Hands Down Neu; could do ; and :
-//   or ? and !
-// - add common i3wm(Regolith, actually) shortcuts like GUI-enter for
-//   terminal, GUI-space for launcher, and GUI-shift-enter for web
-// - combos for tch, sch, and ght
-// - maybe other trigraphs and consonant clusters? but which ones?
+// Mouse Overrides
+#define ZMK_MOUSE_DEFAULT_MOVE_VAL 2400
+#define ZMK_MOUSE_DEFAULT_SCRL_VAL 40
 
-#define DEFAULT 0
-#define HD_NEU  0
-#define HD_GOLD 1
-#define DVORAK  2
-#define COLEMAK 3
-#define QWERTY  4
-#define CANARY  5
-#define STURDY  6
-#define SYM     7
-#define NAV     8
-#define NAV_MAC 9
-#define ENABMAC 10
-#define NUMPAD  11
-#define NUMLOCK 12
-#define I3WMNAV 13
-#define KEEBCTL 14
-
-#include "glam-multigraph.dtsi"
-#include "glam-util.dtsi"
-
-// This bt-kbdctl include needs to be after the layer defines,
-// specifically the one for KEEBCTL.
-#include "glam-bt-kbdctl.dtsi"
-
-// Placeholder for mandatory parameters that are never used.
-#define UNUSED 0
-
-// Home row mods settings; history notes below:
-// - fast tapping term of 100 feels too fast
-// - in Dvorak, al roll sometimes comes out as L, and so roll as O, also as as S
-// - maybe Callum-style sticky mods are the way to go after all?
-#define HM_TAPPING_TERM 280
-#define HM_PRIOR_IDLE 150
-#define HM_QUICK_TAP 175
-
-#define HMLA(KEYCODE) &hml LALT  KEYCODE
-#define HMLC(KEYCODE) &hml LCTRL KEYCODE
-#define HMLG(KEYCODE) &hml LGUI  KEYCODE
-#define HMLS(KEYCODE) &hml LSHFT KEYCODE
-
-#define HMRA(KEYCODE) &hmr LALT  KEYCODE // Use left alt to avoid AltGr issues.
-#define HMRC(KEYCODE) &hmr RCTRL KEYCODE
-#define HMRG(KEYCODE) &hmr RGUI  KEYCODE
-#define HMRS(KEYCODE) &hmr RSHFT KEYCODE
-
-// Macro delays for digraphs (or other multi-letter morpheme stuff).
-#define DIGRAPH_TAP_MS 5
-#define DIGRAPH_WAIT_MS 5
-
-// Adaptive keys settings.
-#define ADAPTIVE_KEYS_TAPPING_TERM 175
-
-// Layer tap settings. If I linger on a layer tap longer than a couple
-// of seconds, I probably was aiming for the hold and changed my mind,
-// rather than wanting to actually tap. I might realistically still
-// want a tap after one second, though.
-#define LAYERTAP_HOLD_MS 1500
-
-//   0   1   2   3   4      5   6   7   8   9
-//  10  11  12  13  14     15  16  17  18  19
-//  20  21  22  23  24     25  26  27  28  29
-//           30  31  32   33  34  35
-
-// LT4 LT3 LT2 LT1 LT0     RT0 RT1 RT2 RT3 RT4
-// LM4 LM3 LM2 LM1 LM0     RM0 RM1 RM2 RM3 RM4
-// LB4 LB3 LB2 LB1 LB0     RB0 RB1 RB2 RB3 RB4
-//          LH2 LH1 LH0   RH0 RH1 RH2
-
-// Key groups for cross-hand hold trigger definitions.
-#define KEYS_LEFT  LT4 LT3 LT2 LT1 LT0  LM4 LM3 LM2 LM1 LM0  LB4 LB3 LB2 LB1 LB0
-#define KEYS_RIGHT RT0 RT1 RT2 RT3 RT4  RM0 RM1 RM2 RM3 RM4  RB0 RB1 RB2 RB3 RB4
-#define KEYS_THUMB LH2 LH1 LH0  RH0 RH1 RH2
+// Layers
+#define DEFAULT   0
+#define LOWER     1
+#define UPPER     2
+#define MACRO     3
 
 / {
-chosen { zmk,physical-layout = &foostan_corne_5col_layout; };
 
-combos {
-  compatible = "zmk,combos";
-  // Both main thumb keys to trigger caps word.
-  combo_caps_word {
-    timeout-ms = <50>;
-    key-positions = <LH0 RH0>;
-    bindings = <&caps_word>;
-  };
-  // Both outer thumb keys trigger the keyboard control layer (layout
-  //  selection and Bluetooth).
-  combo_meta_layer {
-    timeout-ms = <50>;
-    key-positions = <LH2 RH2>;
-    bindings = <&tog KEEBCTL>;
-  };
+    behaviors {
+        hrml: home_row_mods_left {
+            compatible = "zmk,behavior-hold-tap";
+            #binding-cells = <2>;
+            tapping-term-ms = <200>;
+            quick-tap-ms = <150>;
+            flavor = "balanced";
+            //require-prior-idle-ms = <125>;
+            hold-trigger-key-positions = < RIGHT_POSITIONS >;
+            //hold-trigger-on-release; // delay positional check until key release
+            bindings =
+                <&kp>,
+                <&kp>;
+        };
 
-// Digraphs and trigraphs.
-#include "glam-neu-combos.dtsi"
+        hrmr: home_row_mods_right {
+            compatible = "zmk,behavior-hold-tap";
+            #binding-cells = <2>;
+            tapping-term-ms = <200>;
+            quick-tap-ms = <150>;
+            flavor = "balanced";
+            //require-prior-idle-ms = <125>;
+            hold-trigger-key-positions = < LEFT_POSITIONS >;
+            //hold-trigger-on-release; // delay positional check until key release
+            bindings =
+                <&kp>,
+                <&kp>;
+        };
 
-// Navigation, symbols, and numerals.
-#include "glam-sym-nav-num-combos.dtsi"
+        lthp: layer_tap_hold_preferred {
+            compatible = "zmk,behavior-hold-tap";
+            #binding-cells = <2>;
+            tapping-term-ms = <300>;
+            quick-tap-ms = <150>;
+            //require-prior-idle-ms = <125>;
+            flavor = "hold-preferred";
+            bindings =
+                <&mo>,
+                <&kp>;
+        };
 
-  // Combos for clearing Bluetooth. Only available in keyboard
-  // control layer.
-  combo_bt_clear_all {
-    timeout-ms = <50>;
-    key-positions = <LB4 LB3 LB2 LB1>;
-    bindings = <&bt BT_CLR_ALL>;
-    layers = <KEEBCTL>;
-  };
-  combo_bt_clear_first {
-    timeout-ms = <50>;
-    key-positions = <LB4 LH1>;
-    bindings = <&btclr 0>;
-    layers = <KEEBCTL>;
-  };
-  combo_bt_clear_second {
-    timeout-ms = <50>;
-    key-positions = <LB3 LH1>;
-    bindings = <&btclr 1>;
-    layers = <KEEBCTL>;
-  };
-  combo_bt_clear_third {
-    timeout-ms = <50>;
-    key-positions = <LB2 LH1>;
-    bindings = <&btclr 2>;
-    layers = <KEEBCTL>;
-  };
-  combo_bt_clear_fourth {
-    timeout-ms = <50>;
-    key-positions = <LB1 LH1>;
-    bindings = <&btclr 3>;
-    layers = <KEEBCTL>;
-  };
-  combo_bt_clear_fifth {
-    timeout-ms = <50>;
-    key-positions = <LB0 LH1>;
-    bindings = <&btclr 4>;
-    layers = <KEEBCTL>;
-  };
-  // Innermost two top row keys to toggle Mac-mode nav layer.
-  combo_toggle_macintosh {
-    timeout-ms = <50>;
-    key-positions = <LT0 RT0>;
-    bindings = <&tog ENABMAC>;
-  };
-  // Ctrl-backspace combo to use as a backstop; same keys as the
-  // binding on the NAV layer, but since it is a combo, order does not
-  // matter as long as they are pressed within 50ms of each other.
-  combo_ctrl_backspace {
-    timeout-ms = <50>;
-    key-positions = <LH0 RH1>;
-    bindings = <&kp LC(BACKSPACE)>;
-  };
+        mthp: mod_tap_hold_preferred {
+            compatible = "zmk,behavior-hold-tap";
+            #binding-cells = <2>;
+            tapping-term-ms = <300>;
+            quick-tap-ms = <150>;
+            //require-prior-idle-ms = <125>;
+            flavor = "hold-preferred";
+            bindings =
+                <&kp>,
+                <&kp>;
+        };
+
+        mttp: mod_tap_tap_preferred {
+            compatible = "zmk,behavior-hold-tap";
+            #binding-cells = <2>;
+            tapping-term-ms = <300>;
+            quick-tap-ms = <150>;
+            //require-prior-idle-ms = <125>;
+            flavor = "tap-preferred";
+            bindings =
+                <&kp>,
+                <&kp>;
+        };
+    };
+
+    macros {
+        vim_save: vim_save {
+            compatible = "zmk,behavior-macro";
+            #binding-cells = <0>;
+            bindings =
+                <&macro_tap>,
+                <&kp ESC &kp COLON &kp W &kp RETURN>;
+        };
+
+        vim_quit: vim_quit {
+            compatible = "zmk,behavior-macro";
+            #binding-cells = <0>;
+            bindings =
+                <&macro_tap>,
+                <&kp ESC &kp COLON &kp Q &kp RETURN>;
+        };
+
+        vim_up: vim_up {
+            compatible = "zmk,behavior-macro";
+            #binding-cells = <0>;
+            bindings =
+                <&macro_tap>,
+                <&kp LCTRL &kp U>;
+        };
+
+        vim_down: vim_down {
+            compatible = "zmk,behavior-macro";
+            #binding-cells = <0>;
+            bindings =
+                <&macro_tap>,
+                <&kp LCTRL &kp D>;
+        };
+
+      };
+
+    keymap {
+      compatible = "zmk,keymap";
+
+                default_layer {
+                        display-name = "base";
+                        bindings = <
+                         &kp ESC &kp Q &kp W &kp E &kp R &kp T    &kp Y &kp U  &kp I &kp O &kp P &kp MINUS
+&kp RBKT &hrml LSHFT A &hrml LALT S &hrml LCTRL D &hrml LCMD F &kp G   &kp H &hrmr RCMD J &hrmr RCTRL K &hrmr RALT L &hrmr RSHFT SEMI &kp SQT
+                        &kp GRAVE &kp Z &kp X &kp C &hrml LSHFT V &kp B    &kp N &hrmr RSHFT M  &kp COMMA &kp DOT &kp FSLH &kp BSLH
+                                   &lthp 1 BSPC &lthp 2 SPACE &lthp 3 ESC    &kp SPACE &lthp 2 RET &lthp 1 TAB
+                        >;
+                };
+                lower_layer {
+                        display-name = "low";
+                        bindings = <
+   &kp BSPC &kp N1 &kp N2 &kp N3 &kp N4 &kp N5 &kp HOME &kp PG_DN &kp PG_UP &kp END &kp LG(LA(UP)) &kp LG(LA(DOWN))
+   &kp DEL &kp N6 &kp N7 &kp N8 &kp N9 &kp N0 &kp LEFT &kp DOWN &kp UP &kp RIGHT &kp LG(LA(LEFT)) &kp LG(LA(RIGHT))
+   &kp F1  &kp F2 &kp F3 &kp F4 &kp F5 &kp F6  &kp F7   &kp F8   &kp F9 &kp F10 &kp F11 &kp F12
+                                    &trans  &trans &trans &trans &trans &trans
+                        >;
+                };
+
+                raise_layer {
+                        display-name = "up";
+                        bindings = <
+   &kp LG(N1) &kp EXCL &kp AT &kp HASH &kp DLLR &kp PRCNT   &kp LPAR &kp RPAR &kp UNDER &kp PLUS &kp RG(N1)  &kp RG(N2)
+   &kp LG(N2) &kp CARET &kp AMPS &kp KP_ASTERISK &kp LPAR &kp RPAR      &kp LBKT &kp RBKT &kp MINUS &kp EQUAL &kp BSLH &kp RG(N3)
+   &bt BT_CLR &bt BT_SEL 0 &bt BT_SEL 1 &bt BT_SEL 2 &bt BT_SEL 3 &bt BT_SEL 4      &kp LBKT &kp RBKT &kp LT &kp GT &kp PIPE &none
+                             &trans &trans &trans   &trans &trans &trans
+                        >;
+                };
+
+                macro_layer {
+                        display-name = "macro";
+                        bindings = <
+  &none &vim_quit &vim_save &none &none &none &none &vim_up &none &none &none &none
+  &none &none &none &vim_down &none &none &none &none &none &none &none &none
+  &none &none &none &none &none &none &none &none &none &none &none &none
+                                    &trans  &trans &trans     &trans &trans &trans
+                        >;
+                };
+        };
 };
-
-macros {
-};
-
-behaviors {
-  tdjz: tap_dance_jz {
-    compatible = "zmk,behavior-tap-dance";
-    #binding-cells = <0>;
-    bindings = <&kp J>, <&kp Z>;
-  };
-  tdgq: tap_dance_gq {
-    compatible = "zmk,behavior-tap-dance";
-    #binding-cells = <0>;
-    bindings = <&kp G>, <&kp Q>;
-  };
-  // Positional home-row mods, inspired by urob's.
-  hml: homerow_mods_left {
-    compatible = "zmk,behavior-hold-tap";
-    #binding-cells = <2>;
-    bindings = <&kp>, <&kp>;
-    flavor = "balanced";
-    tapping-term-ms = <HM_TAPPING_TERM>;
-    quick-tap-ms = <HM_QUICK_TAP>;
-    require-prior-idle-ms = <HM_PRIOR_IDLE>;
-    hold-trigger-key-positions = <KEYS_RIGHT KEYS_THUMB>;
-    hold-trigger-on-release;
-  };
-  hmr: homerow_mods_right {
-    compatible = "zmk,behavior-hold-tap";
-    #binding-cells = <2>;
-    bindings = <&kp>, <&kp>;
-    flavor = "balanced";
-    tapping-term-ms = <HM_TAPPING_TERM>;
-    quick-tap-ms = <HM_QUICK_TAP>;
-    require-prior-idle-ms = <HM_PRIOR_IDLE>;
-    hold-trigger-key-positions = <KEYS_LEFT KEYS_THUMB>;
-    hold-trigger-on-release;
-  };
-  // Layer tap variant that tries to guarantee the tap if the held
-  // layer was not used.
-  ltt: layer_tap_really_tap {
-    compatible = "zmk,behavior-hold-tap";
-    #binding-cells = <2>;
-    flavor = "hold-preferred";
-    tapping-term-ms = <LAYERTAP_HOLD_MS>;
-    bindings = <&mo>, <&kp>;
-  };
-};
-
-conditional_layers {
-  compatible = "zmk,conditional-layers";
-  numeric_momentary {
-    if-layers = <SYM NAV>;
-    then-layer = <NUMPAD>;
-  };
-  numeric_lock {
-    if-layers = <NUMLOCK>;
-    then-layer = <NUMPAD>;
-  };
-  mac_nav_mutate {
-    if-layers = <NAV ENABMAC>;
-    then-layer = <NAV_MAC>;
-  };
-};
-
-keymap {
-  compatible = "zmk,keymap";
-
-  hands_down_neu_layer {
-// NB: Q and Z exist in combos: UY->Qu/Q (linger), WF->Z.
-// ,-----------------------------.   ,-----------------------------.
-// |  W  |  F  |  M  |  P  |  V  |   |  /  |  .  |  '  |  "  |  J  |
-// |  R  |  S  |  N  |  T  |  B  |   |  ,  |  A  |  E  |  I  |  H  |
-// |  X  |  C  |  L  |  D  |  G  |   |  -  |  U  |  O  |  Y  |  K  |
-// `-----------| Esc | SYM |Sp/Sh|   | Spc | NAV | Bks |-----------'
-    bindings = <
-  &kp W   &kp F   &kp M   &kp P   &kp V    &kp FSLH  &kp DOT &kp SQT &kp DQT &kp J
-  &kp R   &kp S   &kp N   &kp T   &kp B    &kp COMMA &kp A   &kp E   &kp I   &kp H
-  &kp X   &kp C   &kp L   &kp D   &kp G    &kp MINUS &kp U   &kp O   &kp Y   &kp K
-   &ltt I3WMNAV ESC  &mo SYM &mt LSHIFT SPACE    &kp SPACE &mo NAV &kp BSPC
-    >;
-    display-name = "HDNeu";
-  };
-
-  hands_down_gold_layer {
-// ,-----------------------------.   ,-----------------------------.
-// | J z | G q |  M  |  P  |  V  |   |  /  |  .  |  ;  |  "  |  '  |
-// |  R  |  S  |  N  |  D  |  B  |   |  ,  |  A  |  E  |  I  |  H  |
-// |  X  |  F  |  L  |  C  |  W  |   |  -  |  U  |  O  |  Y  |  K  |
-// `-----------| Esc | SYM |  T  |   |Sp/Sh| NAV | Bks |-----------'
-    bindings = <
-  &tdjz   &tdgq   &kp M   &kp P   &kp V    &kp FSLH  &kp DOT &kp SEMI &kp DQT &kp SQT
-  &kp R   &kp S   &kp N   &kp D   &kp B    &kp COMMA &kp A   &kp E    &kp I   &kp H
-  &kp X   &kp F   &kp L   &kp C   &kp W    &kp MINUS &kp U   &kp O    &kp Y   &kp K
-                &trans &trans &kp T    &mt RSHIFT SPACE &trans &trans
-    >;
-    display-name = "HDGold";
-  };
-
-  dvorak_layer {
-// ,-----------------------------.   ,-----------------------------.
-// |  '  |  ,  |  .  |  P  |  Y  |   |  F  |  G  |  C  |  R  |  L  |
-// |  A  |  O  |  E  |  U  |  I  |   |  D  |  H  |  T  |  N  |  S  |
-// |  ;  |  Q  |  J  |  K  |  X  |   |  B  |  M  |  W  |  V  |  Z  |
-// `-----------| Esc | SYM |Sp/Sh|   | Spc | NAV | Bks |-----------'
-    bindings = <
-  &kp SQT  &kp COMMA &kp DOT &kp P   &kp Y    &kp F  &kp G   &kp C   &kp R   &kp L
-  &kp A    &kp O     &kp E   &kp U   &kp I    &kp D  &kp H   &kp T   &kp N   &kp S
-  &kp SEMI &kp Q     &kp J   &kp K   &kp X    &kp B  &kp M   &kp W   &kp V   &kp Z
-                      &trans &trans &trans    &trans &trans &trans
-    >;
-    display-name = "Dvorak";
-  };
-
-  colemakdh_layer {
-// ,-----------------------------.   ,-----------------------------.
-// |  Q  |  W  |  F  |  P  |  B  |   |  J  |  L  |  U  |  Y  |  '  |
-// |  A  |  R  |  S  |  T  |  G  |   |  M  |  N  |  E  |  I  |  O  |
-// |  Z  |  X  |  C  |  D  |  V  |   |  K  |  H  |  ,  |  .  |  /  |
-// `-----------| Esc | SYM |Sp/Sh|   | Spc | NAV | Bks |-----------'
-    bindings = <
-  &kp Q   &kp W   &kp F   &kp P   &kp B    &kp J  &kp L   &kp U     &kp Y   &kp SQT
-  &kp A   &kp R   &kp S   &kp T   &kp G    &kp M  &kp N   &kp E     &kp I   &kp O
-  &kp Z   &kp X   &kp C   &kp D   &kp V    &kp K  &kp H   &kp COMMA &kp DOT &kp FSLH
-               &trans &trans &trans    &trans &trans &trans
-    >;
-    display-name = "Colemak";
-  };
-
-  qwerty_layer {
-// ,-----------------------------.   ,-----------------------------.
-// |  Q  |  W  |  E  |  R  |  T  |   |  Y  |  U  |  I  |  O  |  P  |
-// |  A  |  S  |  D  |  F  |  G  |   |  H  |  J  |  K  |  L  |  ;  |
-// |  Z  |  X  |  C  |  V  |  B  |   |  N  |  M  |  ,  |  .  |  /  |
-// `-----------| Esc | SYM |Sp/Sh|   | Spc | NAV | Bks |-----------'
-    bindings = <
-  &kp Q   &kp W   &kp E   &kp R   &kp T    &kp Y  &kp U   &kp I     &kp O   &kp P
-  &kp A   &kp S   &kp D   &kp F   &kp G    &kp H  &kp J   &kp K     &kp L   &kp SEMI
-  &kp Z   &kp X   &kp C   &kp V   &kp B    &kp N  &kp M   &kp COMMA &kp DOT &kp FSLH
-               &trans &trans &trans    &trans &trans &trans
-    >;
-    display-name = "QWERTY";
-  };
-
-  canary_layer {
-// ,-----------------------------.   ,-----------------------------.
-// |  W  |  L  |  Y  |  P  |  B  |   |  Z  |  F  |  O  |  U  |  '  |
-// |  C  |  R  |  S  |  T  |  G  |   |  M  |  N  |  E  |  I  |  A  |
-// |  Q  |  J  |  V  |  D  |  K  |   |  X  |  H  |  /  |  ,  |  .  |
-// `-----------| Esc | SYM |Sp/Sh|   | Spc | NAV | Bks |-----------'
-    bindings = <
-  &kp W  &kp L  &kp Y  &kp P  &kp B    &kp Z  &kp F  &kp O    &kp U     &kp SQT
-  &kp C  &kp R  &kp S  &kp T  &kp G    &kp M  &kp N  &kp E    &kp I     &kp A
-  &kp Q  &kp J  &kp V  &kp D  &kp K    &kp X  &kp H  &kp FSLH &kp COMMA &kp DOT
-               &trans &trans &trans    &trans &trans &trans
-    >;
-    display-name = "Canary";
-  };
-
-  sturdy_layer {
-// ,-----------------------------.   ,-----------------------------.
-// |  V  |  M  |  L  |  C  |  P  |   |  X  |  F  |  O  |  U  |  J  |
-// |  S  |  T  |  R  |  D  |  Y  |   |  .  |  N  |  A  |  E  |  I  |
-// |  Z  |  K  |  Q  |  G  |  W  |   |  B  |  H  |  '  |  ;  |  ,  |
-// `-----------| Esc | SYM |Sp/Sh|   | Spc | NAV | Bks |-----------'
-    bindings = <
-  &kp V  &kp M  &kp L  &kp C  &kp P    &kp X   &kp F  &kp O   &kp U    &kp J
-  &kp S  &kp T  &kp R  &kp D  &kp Y    &kp DOT &kp N  &kp A   &kp E    &kp I
-  &kp Z  &kp K  &kp Q  &kp G  &kp W    &kp B   &kp H  &kp SQT &kp SEMI &kp COMMA
-               &trans &trans &trans    &trans &trans &trans
-    >;
-    display-name = "Sturdy";
-  };
-
-  symbols_layer {
-// ,-----------------------------.   ,-----------------------------.
-// |  `  |  <  |  >  |  "  |  '  |   |  &  |  :  |  [  |  ]  |  _  |
-// |  !  |  -  |  +  |  =  |  #  |   |  |  |  ;  |  {  |  }  |  ?  |
-// |  ~  |  /  |  *  |  %  |  @  |   |  ^  |  $  |  (  |  )  |  /  |
-// `-----------|     |#####|Rt/Sp|   |     | NUM |  \  |-----------'
-    bindings = <
-  &kp GRAVE &kp LT    &kp GT   &kp DQT     &kp SQT     &kp AMPS  &kp COLON  &kp LBKT &kp RBKT &kp UNDER
-  &kp EXCL  &kp MINUS &kp PLUS &kp EQUAL   &kp HASH    &kp PIPE  &kp SEMI   &kp LBRC &kp RBRC &kp QMARK
-  &kp TILDE &kp SLASH &kp STAR &kp PERCENT &kp AT      &kp CARET &kp DOLLAR &kp LPAR &kp RPAR &kp SLASH
-                     &trans &trans &mt SPC LS(RET)    &trans &trans &kp BSLH
-    >;
-    display-name = "SYM";
-  };
-
-  navigation_layer {
-// ,-----------------------------.   ,-----------------------------.
-// | ^Q  | ^W  | ^E  | ^R  | ^T  |   | Hom | PgU | Up  | PgD | Bks |
-// | ^A  | ^S  | ^D  | ^F  | ^G  |   | End | Left| Down|Right| Ret |
-// | ^Z  | ^X  | ^C  | ^V  | Del |   | GUI | Ctrl|Shift| Alt | Tab |
-// `-----------|XXXXX| NUM |C-Bks|   |     |#####| Ins |-----------'
-    bindings = <
-  &kp LC(Q) &kp LC(W) &kp LC(E) &kp LC(R)  &kp LC(T)     &kp HOME &kp PG_UP &kp UP     &kp PG_DN &kp BSPC
-  &kp LC(A) &kp LC(S) &kp LC(D) &kp LC(F)  &kp LC(G)     &kp END  &kp LEFT  &kp DOWN   &kp RIGHT &kp RET
-  &kp LC(Z) &kp LC(X) &kp LC(C) &kp LC(V)  &kp DEL       &sk RGUI &sk RCTRL &sk RSHIFT &sk LALT  &kp TAB
-                           &none &trans &kp LC(BSPC)   &trans &trans &kp INS
-    >;
-    display-name = "NAV";
-  };
-
-  mac_nav_layer {
-// NB: This layer overwrites the Del binding in the normal nav layer
-// because I use Command-B all the time in IntelliJ IDEA on my Mac.
-// ,-----------------------------.   ,-----------------------------.
-// |  ⌘Q |  ⌘W |  ⌘E |  ⌘R |  ⌘T |   |     |     |     |     |     |
-// |  ⌘A |  ⌘S |  ⌘D |  ⌘F |  ⌘G |   |     |     |     |     |     |
-// |  ⌘Z |  ⌘X |  ⌘C |  ⌘V |  ⌘B |   |     |     |     |     |     |
-// `-----------|     |     |G-Bks|   |     |#####|     |-----------'
-    bindings = <
-  &kp LG(Q) &kp LG(W) &kp LG(E) &kp LG(R) &kp LG(T)    &trans &trans &trans &trans &trans
-  &kp LG(A) &kp LG(S) &kp LG(D) &kp LG(F) &kp LG(G)    &trans &trans &trans &trans &trans
-  &kp LG(Z) &kp LG(X) &kp LG(C) &kp LG(V) &kp LG(B)    &trans &trans &trans &trans &trans
-                         &trans &trans &kp LG(BSPC)    &trans &trans &trans
-    >;
-    display-name = "(NAV)";
-  };
-
-  mac_mutate_layer {
-// Only exists to cause the Mac navigation layer to automatically mutate the regular navigation layer.
-    bindings = <
-  &trans &trans &trans &trans &trans    &trans &trans &trans &trans &trans
-  &trans &trans &trans &trans &trans    &trans &trans &trans &trans &trans
-  &trans &trans &trans &trans &trans    &trans &trans &trans &trans &trans
-                &trans &trans &trans    &trans &trans &trans
-    >;
-  };
-
-  numpad_layer {
-// ,-----------------------------.   ,-----------------------------.
-// | F1  | F2  | F3  | F4  |NumLk|   |  *  |  7  |  8  |  9  |  -  |
-// | F5  | F6  | F7  | F8  | Bks |   |  /  |  4  |  5  |  6  |  +  |
-// | F9  | F10 | F11 | F12 | Del |   |  0  |  1  |  2  |  3  | Ent |
-// `-----------|     |#####| Spc |   |  :  |#####|  .  |-----------'
-    bindings = <
-  &kp F1 &kp F2  &kp F3  &kp F4  &tog NUMLOCK    &kp KP_MULTIPLY &kp N7 &kp N8 &kp N9 &kp KP_SUBTRACT
-  &kp F5 &kp F6  &kp F7  &kp F8  &kp BSPC        &kp KP_DIVIDE   &kp N4 &kp N5 &kp N6 &kp KP_PLUS
-  &kp F9 &kp F10 &kp F11 &kp F12 &kp DEL         &kp N0          &kp N1 &kp N2 &kp N3 &kp ENTER
-                      &trans &trans &kp SPACE    &kp COLON &trans &kp DOT
-    >;
-    display-name = "NUM";
-  };
-
-  num_lock_layer {
-// Only exists to toggle numpad layer lock on and off.
-    bindings = <
-  &trans &trans &trans &trans &trans    &trans &trans &trans &trans &trans
-  &trans &trans &trans &trans &trans    &trans &trans &trans &trans &trans
-  &trans &trans &trans &trans &trans    &trans &trans &trans &trans &trans
-                &trans &trans &trans    &trans &trans &trans
-    >;
-    display-name = "NumLOK";
-  };
-
-  tiling_nav_layer {
-// ,-----------------------------.   ,-----------------------------.
-// |     |     |     |     |     |   |     |     |     |     |     |
-// | WS1 | WS2 | WS3 | WS4 | WS5 |   | WS6 | WS7 | WS8 | WS9 | WS10|
-// |     |     |     |     |     |   |     |     |     |     |     |
-// `-----------|#####|     |     |   |     |     |     |-----------'
-    bindings = <
-  &trans     &trans     &trans     &trans     &trans        &trans     &trans     &trans     &trans     &trans
-  &kp LG(N1) &kp LG(N2) &kp LG(N3) &kp LG(N4) &kp LG(N5)    &kp LG(N6) &kp LG(N7) &kp LG(N8) &kp LG(N9) &kp LG(N0)
-  &trans     &trans     &trans     &trans     &trans        &trans     &trans     &trans     &trans     &trans
-                                  &trans &trans &trans    &trans &trans &trans
-    >;
-    display-name = "i3wm";
-  };
-
-  keyboard_control_layer {
-// ,-----------------------------.   ,-----------------------------.
-// |     |HDNeu|Dvork|Clmak| DFU |   | DFU |     |     |     |     |
-// |QWRTY|HDGld|STRDY|Cnary|     |   |     |     |     |     |     |
-// | BT1 | BT2 | BT3 | BT4 | BT5 |   |     |     |     |     |     |
-// `-----------|#####|XXXXX| BAS |   |     |     |#####|-----------'
-
-    bindings = <
-  &trans     &to HD_NEU  &to DVORAK &to COLEMAK &bootloader     &bootloader &trans &trans &trans &trans
-  &to QWERTY &to HD_GOLD &to STURDY &to CANARY  &trans          &trans &trans &trans &trans &trans
-  &btp 0     &btp 1      &btp 2     &btp 3      &btp 4          &trans &trans &trans &trans &trans
-                                 &trans &none &tog KEEBCTL    &trans &trans &trans
-    >;
-    display-name = "KBDCTL";
-  };
-};
-// end keymap
-};
-
-// Blank layer diagram for easy cutting and pasting.
-
-// ,-----------------------------.   ,-----------------------------.
-// |     |     |     |     |     |   |     |     |     |     |     |
-// |     |     |     |     |     |   |     |     |     |     |     |
-// |     |     |     |     |     |   |     |     |     |     |     |
-// `-----------|     |     |     |   |     |     |     |-----------'

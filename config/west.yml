@@ -1,36 +1,13 @@
----
 manifest:
   remotes:
     - name: zmkfirmware
       url-base: https://github.com/zmkfirmware
-    - name: urob
-      url-base: https://github.com/urob
-    - name: dhruvinsh
-      url-base: https://github.com/dhruvinsh
-    - name: amacleod
-      url-base: https://github.com/amacleod
+    # Additional modules containing boards/shields/custom code can be listed here as well
+    # See https://docs.zephyrproject.org/3.2.0/develop/west/manifest.html#projects
   projects:
     - name: zmk
       remote: zmkfirmware
       revision: main
       import: app/west.yml
-    - name: zmk-helpers
-      remote: urob
-      revision: main
-    - name: zmk-auto-layer
-      remote: urob
-      revision: main
-    - name: zmk-tri-state
-      remote: dhruvinsh
-      revision: main
-    - name: zaphod-config
-      remote: amacleod
-      revision: main
-    - name: weejock-zmk
-      remote: amacleod
-      revision: main
-    - name: tern-zmk
-      remote: amacleod
-      revision: main
   self:
     path: config
